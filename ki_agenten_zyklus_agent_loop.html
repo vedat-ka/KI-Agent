@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KI-Agenten-Zyklus (Agent Loop)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-hover: #334155;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --success: #34d399;
+      --loop: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.6rem 1.15rem;
+      border-radius: 0.5rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #0f172a;
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .step-badge {
+      font-size: 0.9rem;
+      color: var(--muted);
+      padding: 0 0.5rem;
+      font-weight: 600;
+    }
+
+    .diagram-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      min-width: 680px;
+      display: block;
+    }
+
+    .node {
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .node rect {
+      fill: #0f172a;
+      stroke: #475569;
+      stroke-width: 2;
+      rx: 12;
+      transition: all 0.25s ease;
+    }
+
+    .node:hover rect {
+      stroke: var(--accent);
+    }
+
+    .node.active rect {
+      stroke: var(--accent);
+      stroke-width: 3;
+      fill: #172554;
+      filter: drop-shadow(0 0 10px var(--accent-glow));
+    }
+
+    .node.active-loop rect {
+      stroke: var(--loop);
+      stroke-width: 3;
+      fill: #451a03;
+    }
+
+    .node.active-done rect {
+      stroke: var(--success);
+      stroke-width: 3;
+      fill: #064e3b;
+    }
+
+    .node-title {
+      fill: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      text-anchor: middle;
+    }
+
+    .node-sub {
+      fill: var(--muted);
+      font-size: 11px;
+      text-anchor: middle;
+    }
+
+    .edge {
+      fill: none;
+      stroke: #475569;
+      stroke-width: 2;
+      transition: all 0.25s ease;
+    }
+
+    .edge.active {
+      stroke: var(--accent);
+      stroke-width: 3.5;
+      stroke-dasharray: 8 5;
+      animation: flow 1s linear infinite;
+    }
+
+    .edge.active-loop {
+      stroke: var(--loop);
+      stroke-width: 3.5;
+      stroke-dasharray: 8 5;
+      animation: flow 1s linear infinite;
+    }
+
+    .edge.active-done {
+      stroke: var(--success);
+      stroke-width: 3.5;
+      stroke-dasharray: 8 5;
+      animation: flow 1s linear infinite;
+    }
+
+    @keyframes flow {
+      to {
+        stroke-dashoffset: -26;
+      }
+    }
+
+    .details-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 0.75rem;
+      padding: 1.35rem 1.5rem;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 720px) {
+      .details-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .details-card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 0.45rem;
+      color: var(--accent);
+    }
+
+    .details-card p {
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .data-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.9rem 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.84rem;
+      color: #cbd5e1;
+    }
+
+    .data-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      display: block;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>KI-Agenten-Zyklus (Agent Loop)</h1>
+      <p>Klicke auf „Weiter“ oder direkt auf einen Baustein, um den Datenfluss Schritt für Schritt zu erkunden.</p>
+    </header>
+
+    <div class="controls">
+      <button id="prevBtn">← Zurück</button>
+      <span class="step-badge" id="stepCounter">Schritt 1 von 6</span>
+      <button id="nextBtn" class="primary">Weiter →</button>
+      <button id="resetBtn">Zurücksetzen</button>
+    </div>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 880 340" aria-label="KI-Agenten Architektur-Diagramm">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
+          </marker>
+          <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+          </marker>
+          <marker id="arrow-loop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+          </marker>
+          <marker id="arrow-done" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399" />
+          </marker>
+        </defs>
+
+        <!-- Verbindungen (Edges) -->
+        <path id="edge-user-llm" class="edge" d="M 180 140 L 250 140" marker-end="url(#arrow)" />
+        <path id="edge-memory-llm" class="edge" d="M 335 80 L 335 105" marker-end="url(#arrow)" />
+        <path id="edge-llm-tools" class="edge" d="M 420 140 L 485 140" marker-end="url(#arrow)" />
+        <path id="edge-tools-observe" class="edge" d="M 570 175 L 570 230" marker-end="url(#arrow)" />
+        <path id="edge-observe-llm" class="edge" d="M 485 265 Q 335 265 335 178" marker-end="url(#arrow)" />
+        <path id="edge-observe-output" class="edge" d="M 655 265 L 705 265" marker-end="url(#arrow)" />
+
+        <!-- Knoten (Nodes) -->
+        <g id="node-user" class="node" data-node="user">
+          <rect x="20" y="105" width="160" height="70" />
+          <text x="100" y="136" class="node-title">1. Nutzeranfrage</text>
+          <text x="100" y="156" class="node-sub">Ziel &amp; Prompt</text>
+        </g>
+
+        <g id="node-memory" class="node" data-node="memory">
+          <rect x="250" y="15" width="170" height="65" />
+          <text x="335" y="44" class="node-title">Gedächtnis / RAG</text>
+          <text x="335" y="63" class="node-sub">Verlauf &amp; Wissen</text>
+        </g>
+
+        <g id="node-llm" class="node" data-node="llm">
+          <rect x="250" y="105" width="170" height="70" />
+          <text x="335" y="136" class="node-title">LLM / Planung</text>
+          <text x="335" y="156" class="node-sub">Gehirn &amp; Entscheidung</text>
+        </g>
+
+        <g id="node-tools" class="node" data-node="tools">
+          <rect x="485" y="105" width="170" height="70" />
+          <text x="570" y="136" class="node-title">Tools &amp; APIs</text>
+          <text x="570" y="156" class="node-sub">Lager, API, Suche</text>
+        </g>
+
+        <g id="node-observe" class="node" data-node="observe">
+          <rect x="485" y="230" width="170" height="70" />
+          <text x="570" y="261" class="node-title">Beobachtung</text>
+          <text x="570" y="281" class="node-sub">Prüfung &amp; Reflexion</text>
+        </g>
+
+        <g id="node-output" class="node" data-node="output">
+          <rect x="705" y="230" width="155" height="70" />
+          <text x="782" y="261" class="node-title">Finale Antwort</text>
+          <text x="782" y="281" class="node-sub">Ergebnis für Nutzer</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="details-card" id="detailsCard">
+      <div>
+        <h2 id="detailTitle"></h2>
+        <p id="detailDesc"></p>
+      </div>
+      <div class="data-box">
+        <span class="data-label">Beispiel-Datenfluss</span>
+        <div id="detailData"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const steps = [
+      {
+        title: "Schritt 1: Nutzeranfrage geht ein",
+        desc: "Der Nutzer formuliert ein konkretes Ziel. Die Anfrage wird als Startpunkt an das Sprachmodell (LLM) übergeben.",
+        data: 'Prompt: "Habt ihr noch einen Laptop auf Lager? Und was kostet er aktuell in US-Dollar?"',
+        node: "user",
+        edge: "edge-user-llm",
+        mode: "normal"
+      },
+      {
+        title: "Schritt 2: Gedächtnis & Kontext laden",
+        desc: "Das LLM greift auf den bisherigen Gesprächsverlauf (Kurzzeitgedächtnis) sowie bei Bedarf auf gespeicherte Vorlieben oder PDF-Wissen (RAG) zu.",
+        data: "Kontext: System-Prompt + gespeicherte Nutzerinfos aus ChromaDB (agent_db)",
+        node: "memory",
+        edge: "edge-memory-llm",
+        mode: "normal"
+      },
+      {
+        title: "Schritt 3: LLM plant & wählt ein Tool",
+        desc: "Das LLM erkennt, dass es den Lagerbestand nicht raten darf, und entscheidet sich selbstständig für den Aufruf eines passenden Tools.",
+        data: 'Tool-Call: check_inventory(product="laptop")',
+        node: "llm",
+        edge: "edge-llm-tools",
+        mode: "normal"
+      },
+      {
+        title: "Schritt 4: Tool führt Aktion aus",
+        desc: "Das Python-Skript führt die Funktion aus (oder fragt eine externe Live-API ab) und liefert die Rohdaten an die Beobachtungsphase zurück.",
+        data: 'Tool-Ergebnis: {"stock": 4, "price_eur": 999}',
+        node: "tools",
+        edge: "edge-tools-observe",
+        mode: "normal"
+      },
+      {
+        title: "Schritt 5: Beobachtung & Reflexion (Schleife)",
+        desc: "Reicht das Ergebnis schon aus? Noch nicht – der Preis muss noch in US-Dollar umgerechnet werden. Der Agent springt zurück zum LLM für den nächsten Tool-Aufruf.",
+        data: 'Nächster Schritt: convert_currency(999, "EUR", "USD") -> Schleife zurück zum LLM',
+        node: "observe",
+        edge: "edge-observe-llm",
+        mode: "loop"
+      },
+      {
+        title: "Schritt 6: Ziel erreicht – Finale Antwort",
+        desc: "Alle Teilfragen sind geklärt. Das LLM benötigt kein weiteres Tool mehr, speichert relevante Infos im Gedächtnis und formuliert die finale Antwort.",
+        data: 'Agent: "Ja, wir haben noch 4 Laptops auf Lager. Der Preis beträgt 999 € (aktuell ca. 1.085 USD)."',
+        node: "output",
+        edge: "edge-observe-output",
+        mode: "done"
+      }
+    ];
+
+    let currentStep = 0;
+
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const stepCounter = document.getElementById("stepCounter");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailDesc = document.getElementById("detailDesc");
+    const detailData = document.getElementById("detailData");
+
+    function render() {
+      const s = steps[currentStep];
+
+      // Reset alle Knoten & Kanten
+      document.querySelectorAll(".node").forEach(el => {
+        el.classList.remove("active", "active-loop", "active-done");
+      });
+      document.querySelectorAll(".edge").forEach(el => {
+        el.classList.remove("active", "active-loop", "active-done");
+        el.setAttribute("marker-end", "url(#arrow)");
+      });
+
+      // Aktiven Knoten & Kante hervorheben
+      const activeNode = document.getElementById("node-" + s.node);
+      const activeEdge = document.getElementById(s.edge);
+
+      if (s.mode === "loop") {
+        activeNode.classList.add("active-loop");
+        activeEdge.classList.add("active-loop");
+        activeEdge.setAttribute("marker-end", "url(#arrow-loop)");
+      } else if (s.mode === "done") {
+        activeNode.classList.add("active-done");
+        activeEdge.classList.add("active-done");
+        activeEdge.setAttribute("marker-end", "url(#arrow-done)");
+      } else {
+        activeNode.classList.add("active");
+        activeEdge.classList.add("active");
+        activeEdge.setAttribute("marker-end", "url(#arrow-active)");
+      }
+
+      // Text & Buttons aktualisieren
+      stepCounter.textContent = `Schritt ${currentStep + 1} von ${steps.length}`;
+      detailTitle.textContent = s.title;
+      detailDesc.textContent = s.desc;
+      detailData.textContent = s.data;
+
+      prevBtn.disabled = currentStep === 0;
+      nextBtn.disabled = currentStep === steps.length - 1;
+    }
+
+    prevBtn.addEventListener("click", () => {
+      if (currentStep > 0) {
+        currentStep--;
+        render();
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (currentStep < steps.length - 1) {
+        currentStep++;
+        render();
+      }
+    });
+
+    resetBtn.addEventListener("click", () => {
+      currentStep = 0;
+      render();
+    });
+
+    // Direkter Klick auf Knoten
+    document.querySelectorAll(".node").forEach(el => {
+      el.addEventListener("click", () => {
+        const nodeId = el.dataset.node;
+        const idx = steps.findIndex(s => s.node === nodeId);
+        if (idx !== -1) {
+          currentStep = idx;
+          render();
+        }
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>
