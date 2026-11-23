@@ -1,39 +1,63 @@
-Python KI-Agent mit Tools, Live-API, RAG & Langzeitgedächtnis
-Dieses Repository enthält eine minimalistische, voll funktionsfähige Implementierung eines KI-Agenten in Python mit dem offiziellen Google GenAI SDK – ganz ohne schweres Framework.
+# 🤖 Eigener KI-Agent in Python (Gemini API + Live-API + RAG + Memory)
 
-Der Agent fungiert als Shop-Assistent und demonstriert alle Kernkonzepte moderner KI-Agenten:
+Ein minimalistisches, voll funktionsfähiges Beispiel für einen KI-Agenten in Python – ganz ohne schweres Framework, um die Funktionsweise der **Agenten-Schleife (Agent Loop)** unter der Haube transparent zu verstehen.
 
-Eigene lokale Tools (Lagerbestand & Preise)
-Echte Live-API-Aufrufe (Wechselkurse über die Frankfurter-API)
-Agentic RAG (Durchsuchen eigener PDF-Dokumente wie AGB oder Handbücher)
-Dauerhaftes Langzeitgedächtnis über Neustarts hinweg (ChromaDB)
-1. Was ist ein KI-Agent? (Die 4 Kernbausteine)
-Im Kern besteht ein KI-Agent aus einem großen Sprachmodell (LLM) als „Gehirn“, das in einer Schleife selbstständig plant, externe Werkzeuge bedient und Ergebnisse überprüft, bis eine Aufgabe gelöst ist:
+Der Agent fungiert als Shop-Assistent und kombiniert:
+- **Lokale Tools:** Lagerbestand & Preise prüfen (`check_inventory`)
+- **Live-API-Tool:** Echtzeit-Währungsumrechnung über die Frankfurter-API (`convert_currency`)
+- **Agentic RAG:** Eigene PDF-Dokumente (z. B. AGB, Handbücher) lokal durchsuchen (`search_documents`)
+- **Langzeitgedächtnis:** Nutzervorlieben dauerhaft speichern und abrufen (`save_memory`, `recall_memory`)
 
-Gehirn (LLM): Übernimmt Sprachverständnis, Planung und Entscheidungsfindung (hier: gemini-2.5-flash).
-Werkzeuge (Tools): Schnittstellen (Funktionen/APIs), mit denen der Agent aktiv handeln oder Daten abrufen kann.
-Gedächtnis (Memory): Kurzzeitgedächtnis für den aktuellen Aufgabenverlauf sowie Langzeitgedächtnis und Fachwissen über eine Vektordatenbank (RAG).
-Steuerungsschleife (Agent Loop): Die Logik (oft nach dem ReAct-Prinzip: Reason -> Act -> Observe), die den Agenten Schritt für Schritt arbeiten lässt, bis das Ziel erreicht ist.
-Übersicht der Ansätze
-No-Code / Low-Code (n8n, Make, Zapier, Flowise): Ideal für schnelle Prototypen und Büro-Automatisierung.
-Code-Frameworks (LangGraph, CrewAI, Google ADK, OpenAI Agents SDK): Ideal für komplexe Multi-Agenten-Systeme.
-Eigenbau ohne Framework (dieses Projekt): Maximale Transparenz, minimale Abhängigkeiten und tiefes Verständnis der Funktionsweise.
-2. Vorbereitung & Installation
-Voraussetzungen
-Python 3.10 oder neuer
-Ein kostenloser Gemini API-Key aus dem Google AI Studio
-Abhängigkeiten installieren
+---
+
+## 🧠 Die 4 Kernbausteine eines KI-Agenten
+
+| Baustein | Aufgabe | Umsetzung in diesem Projekt |
+| :--- | :--- | :--- |
+| **Gehirn (LLM)** | Sprachverständnis, Planung & Entscheidungen | `gemini-2.5-flash` über das Google GenAI SDK |
+| **Werkzeuge (Tools)** | Handeln über externe APIs & Funktionen | Python-Funktionen mit Docstrings & Typ-Hinweisen |
+| **Gedächtnis (Memory)** | Kurzzeitverlauf & dauerhaftes Wissen (RAG) | Chat-Liste (`contents`) + lokale **ChromaDB** |
+| **Steuerungsschleife** | Schrittweises Arbeiten (*Reason → Act → Observe*) | Eigene `for`-Schleife mit `max_steps`-Limit |
+
+> 💡 **Interaktive Visualisierung:** Öffne die Datei [`agent-loop.html`](./agent-loop.html) im Browser (oder über GitHub Pages), um den gesamten **KI-Agenten-Zyklus (Agent Loop)** Schritt für Schritt interaktiv durchzugehen.
+
+---
+
+## 🛠️ Installation & Setup
+
+### 1. Repository klonen & Pakete installieren
+
+```bash
+git clone [https://github.com/DEIN-NAME/DEIN-REPO.git](https://github.com/DEIN-NAME/DEIN-REPO.git)
+cd DEIN-REPO
+pip install -r requirements.txt
+```
+
+Falls du die Pakete manuell installieren möchtest:
+
+```bash
 pip install google-genai requests chromadb pypdf
-API-Key als Umgebungsvariable setzen
-Linux / macOS:
+```
 
+### 2. API-Key hinterlegen
+
+Erstelle einen kostenlosen API-Key in [Google AI Studio](https://aistudio.google.com/) und setze ihn als Umgebungsvariable:
+
+**macOS / Linux:**
+```bash
 export GEMINI_API_KEY="dein-api-key"
-Windows (PowerShell):
+```
 
+**Windows (PowerShell):**
+```powershell
 $env:GEMINI_API_KEY="dein-api-key"
-3. Vollständiger Python-Code (agent.py)
-Speichere den folgenden Code als agent.py ab. Er vereint alle Tools (Lagerbestand, Live-Währungsrechner, PDF-Suche/RAG und Langzeitgedächtnis) in einer gemeinsamen Agenten-Schleife.
+```
 
+---
+
+## 💻 Der komplette KI-Agent (`agent.py`)
+
+```python
 import uuid
 import requests
 import chromadb
@@ -41,42 +65,28 @@ from pypdf import PdfReader
 from google import genai
 from google.genai import types
 
-# ---------------------------------------------------------
-# 1. Initialisierung: LLM-Client & lokale Vektordatenbank
-# ---------------------------------------------------------
-# Liest GEMINI_API_KEY automatisch aus den Umgebungsvariablen
+# 1. Gemini-Client & lokale Vektordatenbank initialisieren
 client = genai.Client()
-
-# Dauerhafte lokale Vektordatenbank (speichert auf der Festplatte)
 db_client = chromadb.PersistentClient(path="./agent_db")
 docs_collection = db_client.get_or_create_collection(name="shop_docs")
 memory_collection = db_client.get_or_create_collection(name="user_memory")
 
 
-# ---------------------------------------------------------
-# 2. Hilfsfunktion: PDFs einmalig für RAG indexieren
-# ---------------------------------------------------------
+# Optional: Einmalig eine PDF-Datei für RAG indexieren
 def index_pdf(file_path: str):
-    """Liest eine PDF-Datei seitenweise ein und speichert sie in ChromaDB."""
     reader = PdfReader(file_path)
     for i, page in enumerate(reader.pages):
         text = page.extract_text()
         if text and text.strip():
-            # upsert verhindert Duplikate bei erneutem Ausführen
             docs_collection.upsert(
                 documents=[text],
                 ids=[f"{file_path}_seite_{i + 1}"],
                 metadatas=[{"source": file_path, "page": i + 1}],
             )
-    print(f"PDF '{file_path}' erfolgreich indexiert.")
 
 
-# ---------------------------------------------------------
-# 3. Definition der Agenten-Tools
-#    (Docstrings & Typ-Hinweise sind die Anleitung fürs LLM!)
-# ---------------------------------------------------------
+# --- TOOLS ---
 
-# Tool 1: Lokales Lager
 def check_inventory(product: str) -> dict:
     """Prüft den aktuellen Lagerbestand und Preis eines Produkts in Euro."""
     inventory = {
@@ -90,10 +100,9 @@ def check_inventory(product: str) -> dict:
     )
 
 
-# Tool 2: Echtes Live-API-Tool (EZB-Wechselkurse ohne API-Key)
 def convert_currency(amount: float, from_currency: str, to_currency: str) -> dict:
     """Rechnet einen Geldbetrag mit Live-Wechselkursen um (z. B. EUR in USD, CHF oder GBP)."""
-    url = "https://api.frankfurter.app/latest"
+    url = "[https://api.frankfurter.app/latest](https://api.frankfurter.app/latest)"
     params = {
         "amount": amount,
         "from": from_currency.upper(),
@@ -109,18 +118,15 @@ def convert_currency(amount: float, from_currency: str, to_currency: str) -> dic
             "date": data["date"],
         }
     except requests.RequestException as e:
-        # Fehler als Text zurückgeben, damit der Agent sinnvoll reagieren kann
         return {"error": f"API-Abfrage fehlgeschlagen: {e}"}
 
 
-# Tool 3: RAG-Tool für eigene PDF-Dokumente
 def search_documents(query: str) -> list[str]:
     """Durchsucht interne PDF-Dokumente (z. B. AGB, Rückgaberichtlinien, Handbücher)."""
     results = docs_collection.query(query_texts=[query], n_results=2)
     return results["documents"][0] if results["documents"] else ["Keine Treffer."]
 
 
-# Tool 4 & 5: Langzeitgedächtnis (Speichern & Abrufen)
 def save_memory(fact: str) -> str:
     """Speichert wichtige Infos über den Nutzer dauerhaft (z. B. Name, Vorlieben, Währung)."""
     memory_collection.add(documents=[fact], ids=[str(uuid.uuid4())])
@@ -133,9 +139,8 @@ def recall_memory(query: str) -> list[str]:
     return results["documents"][0] if results["documents"] else ["Keine Erinnerungen."]
 
 
-# ---------------------------------------------------------
-# 4. Tool-Registrierung & Agenten-Konfiguration
-# ---------------------------------------------------------
+# --- KONFIGURATION ---
+
 tools_map = {
     "check_inventory": check_inventory,
     "convert_currency": convert_currency,
@@ -149,21 +154,18 @@ config = types.GenerateContentConfig(
         "Du bist ein hilfreicher Shop-Assistent. "
         "Nutze deine Tools für Lagerbestände, Preise und Live-Währungsumrechnungen. "
         "Nutze 'search_documents' für Fragen zu AGB, Garantie oder Rückgabe. "
-        "Nutze 'save_memory', wenn der Nutzer persönliche Vorlieben nennt (z. B. bevorzugte Währung), "
+        "Nutze 'save_memory', wenn der Nutzer persönliche Vorlieben nennt, "
         "und 'recall_memory', um dich an frühere Angaben zu erinnern. "
         "Wenn eine API ausfällt, informiere den Kunden ehrlich darüber."
     ),
     tools=list(tools_map.values()),
-    # Automatische Aufrufe ausschalten, um die Schleife selbst zu kontrollieren
     automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
 )
 
 
-# ---------------------------------------------------------
-# 5. Die Agenten-Schleife (Agent Loop)
-# ---------------------------------------------------------
+# --- AGENTEN-SCHLEIFE (AGENT LOOP) ---
+
 def run_agent(user_prompt: str, max_steps: int = 5):
-    # Kurzzeitgedächtnis (aktueller Gesprächsverlauf)
     contents = [
         types.Content(role="user", parts=[types.Part.from_text(text=user_prompt)])
     ]
@@ -174,16 +176,14 @@ def run_agent(user_prompt: str, max_steps: int = 5):
             contents=contents,
             config=config,
         )
-
-        # Antwort des Modells im Verlauf speichern
         contents.append(response.candidates[0].content)
 
-        # Wenn kein Tool mehr benötigt wird -> Finale Antwort ausgeben
+        # Kein weiterer Tool-Aufruf nötig -> Finale Antwort ausgeben
         if not response.function_calls:
             print(f"\nAgent: {response.text}")
             return
 
-        # Alle vom Modell angeforderten Tools ausführen
+        # Alle angeforderten Tools ausführen
         tool_parts = []
         for call in response.function_calls:
             print(f"[Schritt {step + 1}] Tool-Aufruf: {call.name}({call.args})")
@@ -197,32 +197,21 @@ def run_agent(user_prompt: str, max_steps: int = 5):
                 )
             )
 
-        # Tool-Ergebnisse zurück an das LLM senden
         contents.append(types.Content(role="user", parts=tool_parts))
 
     print("Abbruch: Maximale Anzahl an Schritten erreicht.")
 
 
-# ---------------------------------------------------------
-# 6. Ausführen & Testen
-# ---------------------------------------------------------
 if __name__ == "__main__":
-    # Optional: Eigene PDF-Datei vor dem ersten Lauf indexieren
-    # index_pdf("agb.pdf")
-
-    # Beispiel 1: Tool-Chaining (Lager prüfen -> Live-Umrechnung in USD)
+    # Optional: index_pdf("agb.pdf")
     run_agent("Habt ihr noch einen Laptop auf Lager? Und was kostet er aktuell in US-Dollar?")
+```
 
-    # Beispiel 2: Langzeitgedächtnis testen
-    # run_agent("Merk dir bitte, dass ich Preise immer gerne in Schweizer Franken (CHF) sehe.")
-Starten
-python agent.py
-4. Wichtige Architektur-Konzepte & Best Practices
-Docstrings & Typ-Hinweise sind entscheidend: Das LLM sieht nicht den internen Python-Code, sondern nur Funktionsnamen, Parameter-Typen und Docstrings. Präzise Beschreibungen sorgen für zuverlässige Tool-Aufrufe.
-Automatisches Tool-Chaining: Bei komplexen Fragen verkettet der Agent mehrere Schritte selbstständig (z. B. erst check_inventory("laptop") -> dann mit dem Ergebnis convert_currency(999, "EUR", "USD")).
-Agentic RAG & Memory: Dokumente und Erinnerungen werden nicht blind in jeden Prompt geladen, sondern nur bei Bedarf aktiv über Tools abgerufen. Das spart Tokens und reduziert Halluzinationen.
-Leitplanken (Guardrails):
-max_steps begrenzt die Schleifendurchläufe und verhindert Endlosschleifen sowie unnötige API-Kosten.
-Fehlerbehandlung (try/except + timeout) bei externen APIs verhindert Abstürze und erlaubt dem Agenten eine saubere Antwort.
-Bei kritischen Aktionen (z. B. E-Mails versenden oder Bestellungen auslösen) sollte zusätzlich eine Human-in-the-Loop-Bestätigung eingebaut werden.
-Tipp für große PDFs: In diesem Beispiel wird jede PDF-Seite als ein Block gespeichert. Für sehr umfangreiche Dokumente empfiehlt sich später Chunking (Zerlegen in Textblöcke von ca. 500–1.000 Z
+---
+
+## 🔒 Best Practices & Sicherheit
+
+- **Leitplanken (`max_steps`):** Begrenze immer die maximale Anzahl an Schleifendurchläufen, um Endlosschleifen und unnötige API-Kosten zu vermeiden.
+- **Saubere Docstrings:** Das LLM sieht nicht den Funktionscode, sondern nur Funktionsname, Typ-Hinweise und Docstring. Je präziser diese sind, desto zuverlässiger funktioniert der Agent.
+- **Fehlerbehandlung:** Fange Netzwerk- und API-Fehler (`try/except`) ab und gib sie als Text an das Modell zurück, statt das Programm abstürzen zu lassen.
+- **Keine Secrets committen:** Achte darauf, dass `.env` und `agent_db/` in deiner `.gitignore` stehen.
