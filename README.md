@@ -19,7 +19,7 @@ Der Agent fungiert als Shop-Assistent und kombiniert:
 | **Gedächtnis (Memory)** | Kurzzeitverlauf & dauerhaftes Wissen (RAG) | Chat-Liste (`contents`) + lokale **ChromaDB** |
 | **Steuerungsschleife** | Schrittweises Arbeiten (*Reason → Act → Observe*) | Eigene `for`-Schleife mit `max_steps`-Limit |
 
-> 💡 **Interaktive Visualisierung:** Öffne die Datei [`agent-loop.html`](./agent-loop.html) im Browser (oder über GitHub Pages), um den gesamten **KI-Agenten-Zyklus (Agent Loop)** Schritt für Schritt interaktiv durchzugehen.
+> 💡 **Interaktive Visualisierung:** Öffne die Datei [`ki_agenten_zyklus_agent_loop.html`](./ki_agenten_zyklus_agent_loop.html) im Browser (oder über GitHub Pages), um den gesamten **KI-Agenten-Zyklus (Agent Loop)** Schritt für Schritt interaktiv durchzugehen.
 
 ---
 
